@@ -244,8 +244,11 @@ with tabs[0]:
     rec = recommend(state, board, settings, alpha=alpha, n_sims=n_sims, noise=noise) if cur is not None else {"done": True}
     left, right = st.columns([2.15, 1])
     with left:
-        if rec.get("done"):
+        if cur is None:
             st.success("Draft complete — see MATCHUPS for how your team projects.")
+        elif rec.get("done"):
+            st.info("Your roster is full. Keep entering the other teams' picks (or use 🧪 Auto-draft to the end "
+                    "under Mock-draft tools), then check MATCHUPS.")
         else:
             recs = rec["recs"]
             top = recs.iloc[0]
@@ -336,7 +339,7 @@ with tabs[0]:
                 rows.append('<div class="slot-row empty"><span class="s">BN</span><span class="n">— open —</span><span class="v"></span></div>')
         st.markdown("".join(rows), unsafe_allow_html=True)
 
-        if "edges" in rec:
+        if "edges" in rec and "win_prob" in rec:
             st.markdown("##### CATEGORY EDGE vs AVERAGE ROSTER")
             e = rec["edges"].iloc[state.my_slot]
             wp = 100 * rec["win_prob"]

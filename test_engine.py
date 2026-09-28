@@ -140,3 +140,18 @@ def test_survival_probabilities_sane(board):
     surv = pd.Series(r["survive"], index=board.df["pid"])
     assert surv["connor-mcdavid"] < 0.05       # top market player never lasts to pick 12
     assert surv.sort_values().iloc[-1] == 1.0  # deep bench guys always do
+
+
+def test_roster_full_before_draft_ends(board):
+    """Slot 1's last pick comes 11 picks before the end: the app still needs edges + win odds."""
+    s = ModelSettings()
+    st = DraftState(n_teams=12, my_slot=0)
+    rng = np.random.default_rng(5)
+    while len(st.roster(0)) < ROUNDS:
+        if st.owner(st.current) == 0:
+            st.draft(recommend(st, board, s, n_sims=30)["recs"].iloc[0]["pid"])
+        else:
+            st.draft(auto_pick(st, board, 0.2, rng))
+    assert st.current is not None
+    r = recommend(st, board, s, n_sims=30)
+    assert r["done"] and {"edges", "win_prob", "vals"} <= set(r)

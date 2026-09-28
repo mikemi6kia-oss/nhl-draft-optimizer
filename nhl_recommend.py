@@ -267,7 +267,7 @@ def recommend(state: DraftState, board: Board, s: ModelSettings, alpha: float = 
     on_clock = state.owner(cur) == state.my_slot
     mine = state.my_next_picks()
     if not mine:
-        return {"done": True, "edges": edges, "weights": w}
+        return {"done": True, "edges": edges, "weights": w, "vals": vals, "win_prob": norm.cdf(my_edge)}
     # the pick we're forecasting to: our NEXT pick if on the clock, else our upcoming one
     if on_clock:
         target = mine[1] if len(mine) > 1 else None
@@ -307,7 +307,7 @@ def recommend(state: DraftState, board: Board, s: ModelSettings, alpha: float = 
                      "dropoff": float(g_now[i] - pos_best[df["pos"].iat[i]])})
     rec = pd.DataFrame(rows)
     if rec.empty:
-        return {"done": True, "edges": edges, "weights": w}
+        return {"done": True, "edges": edges, "weights": w, "vals": vals, "win_prob": norm.cdf(my_edge)}
     rec = rec.join(df[["pid", "name", "team_now", "yahoo_pos", "pos", "value", "vorp", "rank"]], on="i")
     rec["market"] = board.market[rec["i"].to_numpy()]
     rec["value_now"] = vals[rec["i"].to_numpy()]
