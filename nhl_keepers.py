@@ -1,4 +1,4 @@
-"""Keepers: keepers.csv
+"""Keepers: keepers.xlsx (from keepers_template.xlsx) or keepers.csv
 
 Columns
     manager   team name as entered in the app's draft-order list, a draft slot number (1..N), or ME
@@ -17,13 +17,38 @@ from nhl_data import DATA_DIR, _plain_strings, match_player, norm_name
 from nhl_draft import DraftState
 
 
+KEEPER_COLS = ["manager", "player", "round", "nhl_team", "pos"]
+
+
+def read_keepers_file(src, filename: str | None = None) -> pd.DataFrame:
+    """Read a keepers .csv or .xlsx (sheet 'Keepers' of the template) into the 5 standard columns.
+    Blank rows and the template's grey EXAMPLE row are dropped; extra columns (e.g. Check) ignored."""
+    name = str(filename or src).lower()
+    if name.endswith((".xlsx", ".xlsm")):
+        xl = pd.ExcelFile(src)
+        sheet = "Keepers" if "Keepers" in xl.sheet_names else xl.sheet_names[0]
+        df = xl.parse(sheet, dtype=str)
+    else:
+        df = pd.read_csv(src, dtype=str)
+    df = _plain_strings(df).fillna("")
+    df.columns = [str(c).strip().lower() for c in df.columns]
+    for c in KEEPER_COLS:
+        if c not in df.columns:
+            df[c] = ""
+    df = df[KEEPER_COLS].astype(object)
+    df = df.apply(lambda col: col.map(lambda v: str(v).strip()))
+    df = df[(df["player"] != "") & ~df["manager"].str.lower().str.startswith("example")]
+    return df.reset_index(drop=True)
+
+
 def load_keepers(path: Path | None = None) -> pd.DataFrame:
-    path = path or DATA_DIR / "keepers.csv"
+    """Repo keepers: keepers.xlsx if present, otherwise keepers.csv."""
+    if path is None:
+        xlsx = DATA_DIR / "keepers.xlsx"
+        path = xlsx if xlsx.exists() else DATA_DIR / "keepers.csv"
     if not Path(path).exists():
-        return pd.DataFrame(columns=["manager", "player", "round", "nhl_team", "pos"])
-    df = _plain_strings(pd.read_csv(path, dtype=str)).fillna("")
-    df.columns = [c.strip().lower() for c in df.columns]
-    return df[df.get("player", pd.Series(dtype=str)).astype(str).str.strip() != ""]
+        return pd.DataFrame(columns=KEEPER_COLS)
+    return read_keepers_file(path)
 
 
 def apply_keepers(state: DraftState, keepers: pd.DataFrame, players: pd.DataFrame) -> list[str]:

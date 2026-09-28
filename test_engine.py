@@ -155,3 +155,10 @@ def test_roster_full_before_draft_ends(board):
     assert st.current is not None
     r = recommend(st, board, s, n_sims=30)
     assert r["done"] and {"edges", "win_prob", "vals"} <= set(r)
+
+
+def test_keepers_excel_template_reads_clean():
+    """The shipped template parses to zero keepers (its grey EXAMPLE row is ignored)."""
+    from nhl_keepers import read_keepers_file
+    k = read_keepers_file(Path(__file__).resolve().parent / "keepers_template.xlsx")
+    assert list(k.columns) == ["manager", "player", "round", "nhl_team", "pos"] and k.empty

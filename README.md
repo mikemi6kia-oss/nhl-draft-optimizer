@@ -15,7 +15,8 @@ Every file sits in the top level of the repo (no subfolders), apart from the opt
 | `app.py`, `ui_style.py` | Streamlit app |
 | `nhl_*.py` | Model: projections, valuation, draft simulator, recommendations |
 | `skaters.csv`, `goalies.csv` | 2025-26 stats (rebuild from `2025-26_season.xlsx` with `python build_data.py`) |
-| `keepers.csv` | Keepers: `manager,player,round,nhl_team,pos` (manager = team name, slot number, or ME) |
+| `keepers_template.xlsx` | **Keepers Excel template** — fill it in, then upload it in the app (Keepers & Data tab) or add it to the repo as `keepers.xlsx` |
+| `keepers.csv` | Alternative keepers format: `manager,player,round,nhl_team,pos` (manager = team name, slot number, or ME) |
 | `adp.csv` *(optional)* | Yahoo ADP: `name,adp[,team,pos]` |
 | `eligibility.csv` *(optional)* | Multi-position eligibility: `name,positions,team` e.g. `Jake Guentzel,C/LW,TBL` |
 | `test_engine.py` | Tests: `pip install pytest && pytest -q` |

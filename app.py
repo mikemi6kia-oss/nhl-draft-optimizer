@@ -20,7 +20,7 @@ from nhl_config import ALL_CATS, BENCH_SLOTS, GOALIE_CATS, ROUNDS, SKATER_CATS, 
 from nhl_data import DATA_DIR, _plain_strings, load_players
 from nhl_draft import DraftState
 from nhl_evaluate import league_matchups
-from nhl_keepers import apply_keepers, load_keepers
+from nhl_keepers import apply_keepers, load_keepers, read_keepers_file
 from nhl_market import market_rank
 from nhl_recommend import Board, assign_lineup, auto_pick, recommend
 
@@ -508,14 +508,19 @@ with tabs[5]:
         if kc[0].button("Apply keepers (resets draft)", type="primary"):
             ss["keepers_override"] = edit.fillna("").astype(str)
             st.rerun()
-        up = kc[1].file_uploader("…or upload keepers.csv", type="csv", key="keepers_up")
+        up = kc[1].file_uploader("…or upload the keepers Excel template / csv", type=["xlsx", "csv"], key="keepers_up")
         if up is not None and ss.get("keepers_up_sig") != (up.name, up.size):
             ss["keepers_up_sig"] = (up.name, up.size)
-            ss["keepers_override"] = _plain_strings(pd.read_csv(up, dtype=str)).fillna("")
+            try:
+                ss["keepers_override"] = read_keepers_file(up, up.name)
+            except Exception as e:  # noqa: BLE001
+                ss["keepers_read_error"] = f"Couldn't read {up.name}: {e}"
             st.rerun()
+        if ss.get("keepers_read_error"):
+            st.error(ss.pop("keepers_read_error"))
         for p in ss.get("keeper_problems", []):
             st.warning(p)
-        st.caption("To make keepers permanent, commit them to keepers.csv in the GitHub repo.")
+        st.caption("To make keepers permanent, save the filled-in template as keepers.xlsx in the GitHub repo (it takes priority over keepers.csv).")
     with k2:
         st.markdown("##### SAVE / LOAD DRAFT")
         st.download_button("💾 Download draft state", state.to_json(), file_name="draft_state.json", mime="application/json",
