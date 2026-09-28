@@ -17,7 +17,7 @@ import streamlit as st
 
 import ui_style as ui
 from nhl_config import ALL_CATS, BENCH_SLOTS, GOALIE_CATS, ROUNDS, SKATER_CATS, ModelSettings
-from nhl_data import DATA_DIR, load_players
+from nhl_data import DATA_DIR, _plain_strings, load_players
 from nhl_draft import DraftState
 from nhl_evaluate import league_matchups
 from nhl_keepers import apply_keepers, load_keepers
@@ -49,7 +49,7 @@ def get_market(n_teams: int, adp_text: str | None):
     sk, gl = get_players()
     adp = None
     if adp_text:
-        adp = pd.read_csv(io.StringIO(adp_text))
+        adp = _plain_strings(pd.read_csv(io.StringIO(adp_text)))
         adp.columns = [c.strip().lower() for c in adp.columns]
         if not {"name", "adp"} <= set(adp.columns):
             adp = None
@@ -508,7 +508,7 @@ with tabs[5]:
         up = kc[1].file_uploader("…or upload keepers.csv", type="csv", key="keepers_up")
         if up is not None and ss.get("keepers_up_sig") != (up.name, up.size):
             ss["keepers_up_sig"] = (up.name, up.size)
-            ss["keepers_override"] = pd.read_csv(up, dtype=str).fillna("")
+            ss["keepers_override"] = _plain_strings(pd.read_csv(up, dtype=str)).fillna("")
             st.rerun()
         for p in ss.get("keeper_problems", []):
             st.warning(p)

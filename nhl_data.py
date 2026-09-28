@@ -23,9 +23,25 @@ def _slug(s: str) -> str:
     return norm_name(s).replace(" ", "-")
 
 
+def _plain_strings(df: pd.DataFrame) -> pd.DataFrame:
+    """Force text columns to plain Python-object strings.
+
+    pandas 3 stores text in a backend that depends on whether pyarrow is installed (it is on
+    Streamlit Cloud, it may not be locally), and some string operations behave differently between
+    the two. Plain object columns behave identically everywhere."""
+    for c in df.columns:
+        if not pd.api.types.is_numeric_dtype(df[c]) and df[c].dtype != object:
+            df[c] = pd.Series(list(df[c]), index=df.index, dtype=object)
+    return df
+
+
+def read_csv_plain(path, **kw) -> pd.DataFrame:
+    return _plain_strings(pd.read_csv(path, **kw))
+
+
 def load_players(data_dir: Path = DATA_DIR) -> tuple[pd.DataFrame, pd.DataFrame]:
-    sk = pd.read_csv(data_dir / "skaters.csv")
-    gl = pd.read_csv(data_dir / "goalies.csv")
+    sk = read_csv_plain(data_dir / "skaters.csv")
+    gl = read_csv_plain(data_dir / "goalies.csv")
 
     sk["yahoo_pos"] = sk["pos"].map({"C": "C", "L": "LW", "R": "RW", "D": "D"})
     sk["pos"] = sk["pos"].map(POS_MAP)
@@ -37,30 +53,33 @@ def load_players(data_dir: Path = DATA_DIR) -> tuple[pd.DataFrame, pd.DataFrame]
     # Optional: multi-position eligibility (Yahoo gives e.g. C/LW). eligibility.csv: name,positions,team(optional)
     elig_path = data_dir / "eligibility.csv"
     if elig_path.exists():
-        el = pd.read_csv(elig_path).fillna("")
+        el = read_csv_plain(elig_path).fillna("")
         for _, r in el.iterrows():
             positions = tuple(dict.fromkeys(
                 POS_MAP.get(p.strip().upper().replace("LW", "L").replace("RW", "R"), p.strip().upper())
                 for p in str(r["positions"]).replace(",", "/").split("/") if p.strip()))
             mask = sk["name"].map(norm_name) == norm_name(r["name"])
             if "team" in el.columns and r.get("team"):
-                mask &= sk["team"].str.contains(str(r["team"]).upper())
+                want = str(r["team"]).upper()
+                mask &= sk["team"].map(lambda t: want in str(t).upper())
             for i in sk.index[mask]:
                 sk.at[i, "elig"] = positions
                 sk.at[i, "pos"] = positions[0]
                 sk.at[i, "yahoo_pos"] = "/".join(positions)
 
     for df in (sk, gl):
-        df["name_key"] = df["name"].map(norm_name)
+        df["name_key"] = [norm_name(n) for n in df["name"]]
         # current team = last listed for traded players ("MIN,VAN" -> VAN)
-        df["team_now"] = df["team"].astype(str).str.split(",").str[-1]
-    # Stable ids; disambiguate identical names (e.g. the two Elias Petterssons) by position, then team
-    sk["pid"] = sk["name"].map(_slug)
-    dup = sk["pid"].duplicated(keep=False)
-    sk.loc[dup, "pid"] = sk.loc[dup, "pid"] + "-" + sk.loc[dup, "pos"].str.lower()
-    dup = sk["pid"].duplicated(keep=False)
-    sk.loc[dup, "pid"] = sk.loc[dup, "pid"] + "-" + sk.loc[dup, "team_now"].str.lower()
-    gl["pid"] = gl["name"].map(_slug) + "-g"
+        df["team_now"] = [str(t).split(",")[-1].strip() for t in df["team"]]
+    # Stable ids; disambiguate identical names (e.g. the two Elias Petterssons) by position, then team.
+    # Built in plain Python so it can't depend on the pandas string backend.
+    pids = [_slug(n) for n in sk["name"]]
+    for extra in (list(sk["pos"]), list(sk["team_now"])):
+        counts = pd.Series(pids).value_counts()
+        pids = [f"{p}-{str(e).lower()}" if counts[p] > 1 else p for p, e in zip(pids, extra)]
+    sk["pid"] = pd.Series(pids, index=sk.index, dtype=object)
+    gl["pid"] = pd.Series([_slug(n) + "-g" for n in gl["name"]], index=gl.index, dtype=object)
+    sk, gl = _plain_strings(sk), _plain_strings(gl)   # derived columns too
     assert not pd.concat([sk["pid"], gl["pid"]]).duplicated().any()
     return sk, gl
 

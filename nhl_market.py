@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 
 from nhl_config import ModelSettings
-from nhl_data import DATA_DIR, match_player
+from nhl_data import DATA_DIR, _plain_strings, match_player
 from nhl_valuation import value_players
 
 
@@ -23,7 +23,7 @@ def load_adp(data_dir: Path = DATA_DIR) -> pd.DataFrame | None:
     p = data_dir / "adp.csv"
     if not p.exists():
         return None
-    df = pd.read_csv(p)
+    df = _plain_strings(pd.read_csv(p))
     df.columns = [c.strip().lower() for c in df.columns]
     if not {"name", "adp"} <= set(df.columns) or df.empty:
         return None

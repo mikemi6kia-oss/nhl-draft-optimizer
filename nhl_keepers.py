@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from nhl_data import DATA_DIR, match_player, norm_name
+from nhl_data import DATA_DIR, _plain_strings, match_player, norm_name
 from nhl_draft import DraftState
 
 
@@ -21,7 +21,7 @@ def load_keepers(path: Path | None = None) -> pd.DataFrame:
     path = path or DATA_DIR / "keepers.csv"
     if not Path(path).exists():
         return pd.DataFrame(columns=["manager", "player", "round", "nhl_team", "pos"])
-    df = pd.read_csv(path, dtype=str).fillna("")
+    df = _plain_strings(pd.read_csv(path, dtype=str)).fillna("")
     df.columns = [c.strip().lower() for c in df.columns]
     return df[df.get("player", pd.Series(dtype=str)).astype(str).str.strip() != ""]
 
@@ -29,6 +29,7 @@ def load_keepers(path: Path | None = None) -> pd.DataFrame:
 def apply_keepers(state: DraftState, keepers: pd.DataFrame, players: pd.DataFrame) -> list[str]:
     """Place keepers into the draft. Returns human-readable problems (never raises)."""
     problems = []
+    keepers = _plain_strings(keepers.copy()).fillna("")
     names = {norm_name(n): i for i, n in enumerate(state.team_names)}
     names[norm_name("me")] = state.my_slot
     names[norm_name("★ ME")] = state.my_slot
