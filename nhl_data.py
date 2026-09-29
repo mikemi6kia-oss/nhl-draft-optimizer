@@ -15,7 +15,11 @@ POS_MAP = {"C": "C", "L": "W", "R": "W", "D": "D"}
 
 def norm_name(name: str) -> str:
     """Accent/case/punctuation-insensitive key: 'Tim Stützle' -> 'tim stutzle'."""
-    s = unicodedata.normalize("NFKD", str(name)).encode("ascii", "ignore").decode()
+    # typographic quotes/dashes (auto-inserted by phones & Word) -> plain ASCII first, so
+    # "Aho’s" and "Aho's" match; otherwise the ASCII step would silently drop them
+    s = str(name).translate(str.maketrans({"\u2019": "'", "\u2018": "'", "\u02bc": "'", "\u00b4": "'", "`": "'",
+                                           "\u201c": '"', "\u201d": '"', "\u2013": "-", "\u2014": "-", "\u00a0": " "}))
+    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
     s = re.sub(r"[^a-z0-9 ]", " ", s.lower())
     return re.sub(r"\s+", " ", s).strip()
 

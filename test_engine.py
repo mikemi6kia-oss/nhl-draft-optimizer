@@ -182,3 +182,11 @@ def test_extra_players_and_availability(players):
     assert abs(ratio - row.loc["Connor Bedard", "proj_gp"] / base.loc["Connor Bedard", "proj_gp"]) < 1e-9
     # 84-game season: a full-season regular projects to 84 GP
     assert row.loc["Connor McDavid", "proj_gp"] == 84
+
+
+
+def test_team_name_matching_ignores_curly_quotes_and_case(players, board):
+    st = DraftState(n_teams=12, my_slot=0, team_names=["Don Luig", "Bros before Aho\u2019s", "TOP OF THE WORLD"])
+    kp = pd.DataFrame({"manager": ["Bros before Aho's", "Top of the world"], "player": ["Juraj Slafkovsky", "Nico Hischier"],
+                       "round": ["11", "11"], "nhl_team": ["", ""], "pos": ["", ""]})
+    assert apply_keepers(st, kp, board.df) == []

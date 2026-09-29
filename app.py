@@ -74,7 +74,15 @@ def _on_randomize(n):
 
 with st.sidebar:
     st.markdown("### ⚙ LEAGUE")
-    n_teams = int(st.number_input("Teams in league", min_value=6, max_value=16, value=12, step=1, key="n_teams"))
+    # league defaults from draft_order.txt in the repo (one team per line, in draft order)
+    _order_file = DATA_DIR / "draft_order.txt"
+    _default_names = [l.strip() for l in _order_file.read_text(encoding="utf-8").splitlines() if l.strip()] \
+        if _order_file.exists() else []
+    if "names" not in ss and _default_names:
+        ss["names"] = "\n".join(_default_names)
+    if "n_teams" not in ss:
+        ss["n_teams"] = len(_default_names) if 6 <= len(_default_names) <= 16 else 12
+    n_teams = int(st.number_input("Teams in league", min_value=6, max_value=16, step=1, key="n_teams"))
     ss.setdefault("_slot", 1)
     ss["_slot"] = min(ss["_slot"], n_teams)
     c1, c2 = st.columns([3, 1])
