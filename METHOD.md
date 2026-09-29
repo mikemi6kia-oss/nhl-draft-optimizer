@@ -4,9 +4,11 @@
 Roster 2C / 4W / 4D / 1 Util / 2G + 6 bench → 19 draft rounds (IR spots aren't drafted).
 
 ### 1. Projections
-2025-26 per-game rates × projected games played.
+2025-26 per-game rates × projected games in the **84-game 2026-27 season**.
 - **Injury regression:** established players (40+ GP) get back a share (default 35%) of the games they missed, because injuries are mostly random year to year. Call-ups with few games don't.
-- **Small-sample shrinkage:** per-game rates are blended with a fringe-roster prior worth 10 games (skaters), 400 shots (SV%) and 600 minutes (GAA). This only matters for players with tiny samples.
+- **Rate regression:** per-game rates are blended with a replacement-level rate worth 10 games (skaters), 400 shots (SV%) and 600 minutes (GAA). That trims a full-season player's rates by ~11% toward the pack (normal year-to-year regression) and a 10-game call-up's by ~50%.
+- **Hand-made additions (`extra_players.csv`):** players with no 2025-26 NHL line — Barkov (missed the season), 2026 draftees on NHL rosters (McKenna, Stenberg). Their full-season projections are estimates explained in the file's note column; blank PPP/GWG/SOG are filled from statistically similar skaters (median PPP share, GWG share and shooting % of the 25 closest regulars).
+- **Health updates (`availability.csv`):** replace projected games (e.g. Matthew Tkachuk, healthy after a 31-game season) or subtract games a player will miss (Bedard, Jarvis, Terry, Domi at the start of 2026-27). Counting stats scale with games; rates don't change.
 
 ### 2. Category scores — your "standard deviation" instinct, upgraded
 Yahoo's standard-deviation view is a **z-score**: how many SDs a player is above the average draftable player in each category. That's the right starting point, and you can switch the app to it ("Classic Z-score"). Two refinements matter for *head-to-head*:
@@ -43,6 +45,6 @@ Rosters are also scored on **raw projected totals** (actual goals, saves, SV%…
 Standard error ≈ 0.02 per row. A separate 20-league test found removing goalie matchup scaling cost ~0.07 cats/week; bench usefulness, category-need adaptivity and injury regression moved results by less than the noise, so their defaults are judgement calls. Caveat: the evaluator uses the same projections as the model, so it measures drafting *given* the projections, not projection accuracy — and real opponents are smarter than the market proxy, so expect a smaller edge in a real room.
 
 ### Known limits
-- Projections are last season's rates; they don't know about trades, retirements, rookies (2026 draftees) or role changes. Edit the CSVs or add ADP to correct for them.
+- Projections are last season's rates plus the hand-made files above. They don't know about offseason trades (team shown may be stale — e.g. Brady Tkachuk to FLA, Markstrom replacing Bobrovsky), retirements or role changes. Edit `availability.csv` / `extra_players.csv`, or add ADP, to correct for them.
 - Positions come from the stats file (C / L / R / D). Yahoo multi-eligibility (e.g. C/RW) can be added in `eligibility.csv`.
 - The simulated opponents are only as good as the market rank — upload real Yahoo ADP close to draft day.

@@ -112,9 +112,9 @@ def value_players(sk: pd.DataFrame, gl: pd.DataFrame, s: ModelSettings) -> pd.Da
 
     # --- assemble one table --------------------------------------------------------------
     keep_sk = ["pid", "name", "team", "team_now", "pos", "elig", "yahoo_pos", "gp", "g", "a", "p", "ppp", "gwg", "sog",
-               "toi_pg", "proj_gp", "proj_g", "proj_a", "proj_p", "proj_ppp", "proj_gwg", "proj_sog", "name_key"]
+               "toi_pg", "proj_gp", "proj_g", "proj_a", "proj_p", "proj_ppp", "proj_gwg", "proj_sog", "name_key", "note"]
     keep_gl = ["pid", "name", "team", "team_now", "pos", "elig", "yahoo_pos", "gp", "gs", "w", "sa", "sv", "ga", "sv_pct",
-               "gaa", "proj_gp", "proj_w", "proj_sv", "proj_sa", "proj_ga", "proj_toi", "proj_svpct", "proj_gaa", "name_key"]
+               "gaa", "proj_gp", "proj_w", "proj_sv", "proj_sa", "proj_ga", "proj_toi", "proj_svpct", "proj_gaa", "name_key", "note"]
     A = skp[keep_sk].copy()
     B = glp[keep_gl].copy()
     for c in ALL_CATS:

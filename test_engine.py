@@ -32,7 +32,7 @@ def board(players):
 
 def test_data_loaded(players):
     sk, gl = players
-    assert len(sk) == 940 and len(gl) == 98
+    assert len(sk) == 940 + int(sk["added"].sum()) and len(gl) == 98
     assert set(sk["pos"]) == {"C", "W", "D"}
     ids = pd.concat([sk["pid"], gl["pid"]])
     assert ids.is_unique
@@ -91,7 +91,7 @@ def test_keepers(players, board):
                        "player": ["Cole Caufield", "Connor McDavid", "Cale Makar", "Cale Makar"],
                        "round": ["3", "1", "", ""], "nhl_team": ["", "", "", ""], "pos": ["", "", "", ""]})
     problems = apply_keepers(st, kp, board.df)
-    assert len(problems) == 1 and "Nobody" in problems[0]
+    assert len(problems) == 1 and "Nobody" in problems[0] and "sidebar" in problems[0]
     assert st.picks[0]["pid"] == "connor-mcdavid"                 # team 1, round 1
     k_me = [k for k, v in st.picks.items() if v["pid"] == "cole-caufield"][0]
     assert owner(k_me, 12) == 4 and k_me // 12 == 2               # my round-3 pick
@@ -162,3 +162,23 @@ def test_keepers_excel_template_reads_clean():
     from nhl_keepers import read_keepers_file
     k = read_keepers_file(Path(__file__).resolve().parent / "keepers_template.xlsx")
     assert list(k.columns) == ["manager", "player", "round", "nhl_team", "pos"] and k.empty
+
+
+
+def test_extra_players_and_availability(players):
+    sk, gl = players
+    df = value_players(sk, gl, ModelSettings())
+    row = df.set_index("name")
+    # added players exist, are draftable, have imputed categories and a note
+    for n in ("Aleksander Barkov", "Gavin McKenna"):
+        r = row.loc[n]
+        assert r["proj_gp"] > 60 and r["proj_ppp"] > 0 and r["proj_sog"] > 0 and r["note"]
+    assert match_player("Aleksander Barkov", df) == "aleksander-barkov"
+    # health overrides: Tkachuk restored to a full season, Bedard loses ~16 games
+    assert row.loc["Matthew Tkachuk", "proj_gp"] == 78
+    base = value_players(sk.assign(avail_gp=np.nan, avail_missed=np.nan), gl, ModelSettings()).set_index("name")
+    assert abs(base.loc["Connor Bedard", "proj_gp"] - row.loc["Connor Bedard", "proj_gp"] - 16) < 1e-6
+    ratio = row.loc["Connor Bedard", "proj_g"] / base.loc["Connor Bedard", "proj_g"]
+    assert abs(ratio - row.loc["Connor Bedard", "proj_gp"] / base.loc["Connor Bedard", "proj_gp"]) < 1e-9
+    # 84-game season: a full-season regular projects to 84 GP
+    assert row.loc["Connor McDavid", "proj_gp"] == 84

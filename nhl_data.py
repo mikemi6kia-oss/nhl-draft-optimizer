@@ -5,6 +5,7 @@ import re
 import unicodedata
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 DATA_DIR = Path(__file__).resolve().parent
@@ -39,9 +40,75 @@ def read_csv_plain(path, **kw) -> pd.DataFrame:
     return _plain_strings(pd.read_csv(path, **kw))
 
 
+def _impute_missing(extra: pd.DataFrame, base: pd.DataFrame) -> pd.DataFrame:
+    """Fill blank PPP / GWG / SOG for added players from statistically similar skaters.
+
+    Peers = regulars (40+ GP) in the same group (F/D) with a similar points-per-game (PPP, GWG)
+    or goals-per-game (SOG). Uses their median PPP/P, GWG/G and shooting %."""
+    reg = base[base["gp"] >= 40].copy()
+    reg["grp"] = np.where(reg["pos"] == "D", "D", "F")
+    reg["ppg"] = reg["p"] / reg["gp"]
+    reg["gpg"] = reg["g"] / reg["gp"]
+    out = extra.copy()
+    for i, r in out.iterrows():
+        grp = "D" if r["pos"] == "D" else "F"
+        ppg = (r["g"] + r["a"]) / max(r["gp"], 1)
+        gpg = r["g"] / max(r["gp"], 1)
+        peers = reg[(reg["grp"] == grp)]
+        near = peers.iloc[(peers["ppg"] - ppg).abs().argsort()[:25]]
+        near_g = peers.iloc[(peers["gpg"] - gpg).abs().argsort()[:25]]
+        if pd.isna(r.get("ppp")):
+            out.at[i, "ppp"] = round((r["g"] + r["a"]) * float((near["ppp"] / near["p"].replace(0, np.nan)).median()))
+        if pd.isna(r.get("gwg")):
+            out.at[i, "gwg"] = round(r["g"] * float((near_g["gwg"] / near_g["g"].replace(0, np.nan)).median()))
+        if pd.isna(r.get("sog")):
+            sh = float((near_g["g"] / near_g["sog"].replace(0, np.nan)).median())
+            out.at[i, "sog"] = round(r["g"] / sh) if sh > 0 else 0
+    return out
+
+
+def load_extra_players(base: pd.DataFrame, data_dir: Path = DATA_DIR) -> pd.DataFrame:
+    """extra_players.csv: skaters missing from the stats file (lost season, rookies), with a
+    full-season projection. Columns: name,team,pos,gp,g,a[,ppp,gwg,sog],note — pos C/L/R/D."""
+    p = data_dir / "extra_players.csv"
+    if not p.exists():
+        return base.iloc[0:0]
+    ex = read_csv_plain(p)
+    ex.columns = [c.strip().lower() for c in ex.columns]
+    ex = ex[ex["name"].astype(str).str.strip() != ""].copy()
+    for c in ("gp", "g", "a", "ppp", "gwg", "sog"):
+        ex[c] = pd.to_numeric(ex[c], errors="coerce") if c in ex.columns else np.nan
+    ex = ex[~ex["name"].map(norm_name).isin(set(base["name"].map(norm_name)))]   # never duplicate real rows
+    ex = _impute_missing(ex, base)
+    ex["p"] = ex["g"] + ex["a"]
+    ex["season"] = "projection"
+    ex["added"] = True
+    return ex
+
+
+def load_availability(data_dir: Path = DATA_DIR) -> pd.DataFrame:
+    p = data_dir / "availability.csv"
+    if not p.exists():
+        return pd.DataFrame(columns=["name", "team", "proj_gp", "games_missed", "note"])
+    av = read_csv_plain(p)
+    av.columns = [c.strip().lower() for c in av.columns]
+    return av[av["name"].astype(str).str.strip() != ""]
+
+
 def load_players(data_dir: Path = DATA_DIR) -> tuple[pd.DataFrame, pd.DataFrame]:
     sk = read_csv_plain(data_dir / "skaters.csv")
     gl = read_csv_plain(data_dir / "goalies.csv")
+    sk["added"] = False
+    extra = load_extra_players(sk, data_dir)
+    if len(extra):
+        sk = pd.concat([sk, extra[[c for c in extra.columns if c in sk.columns or c == "note"]]], ignore_index=True)
+        sk["added"] = sk["added"].fillna(False).astype(bool)
+    for df in (sk, gl):
+        if "note" not in df.columns:
+            df["note"] = ""
+        df["note"] = df["note"].fillna("")
+        for c in ("avail_gp", "avail_missed"):
+            df[c] = np.nan
 
     sk["yahoo_pos"] = sk["pos"].map({"C": "C", "L": "LW", "R": "RW", "D": "D"})
     sk["pos"] = sk["pos"].map(POS_MAP)
@@ -79,6 +146,23 @@ def load_players(data_dir: Path = DATA_DIR) -> tuple[pd.DataFrame, pd.DataFrame]
         pids = [f"{p}-{str(e).lower()}" if counts[p] > 1 else p for p, e in zip(pids, extra)]
     sk["pid"] = pd.Series(pids, index=sk.index, dtype=object)
     gl["pid"] = pd.Series([_slug(n) + "-g" for n in gl["name"]], index=gl.index, dtype=object)
+    # health / role updates (availability.csv) -> avail_* columns used by the projections
+    av = load_availability(data_dir)
+    both = pd.concat([sk[["pid", "name_key", "team", "pos"]], gl[["pid", "name_key", "team", "pos"]]], ignore_index=True)
+    unmatched = []
+    for _, r in av.iterrows():
+        pid = match_player(r["name"], both, r.get("team") or None)
+        if pid is None:
+            unmatched.append(str(r["name"]))
+            continue
+        df = sk if pid in set(sk["pid"]) else gl
+        m = df["pid"] == pid
+        df.loc[m, "avail_gp"] = pd.to_numeric(r.get("proj_gp"), errors="coerce")
+        df.loc[m, "avail_missed"] = pd.to_numeric(r.get("games_missed"), errors="coerce")
+        note = str(r.get("note", "") or "").strip()
+        if note:
+            df.loc[m, "note"] = note
+    sk.attrs["availability_unmatched"] = unmatched
     sk, gl = _plain_strings(sk), _plain_strings(gl)   # derived columns too
     assert not pd.concat([sk["pid"], gl["pid"]]).duplicated().any()
     return sk, gl

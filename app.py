@@ -235,6 +235,9 @@ h[4].markdown(ui.card("Progress", f"{done}/{state.total_picks} "
               unsafe_allow_html=True)
 st.write("")
 
+if ss.get("keeper_problems"):
+    st.warning(f"⚠ Keepers: {ss['keeper_problems'][0]}  (details in the KEEPERS & DATA tab)")
+
 tabs = st.tabs(["⚡ WAR ROOM", "📋 BIG BOARD", "🧱 DRAFT BOARD", "📊 MATCHUPS", "🧪 SLOT LAB", "🔒 KEEPERS & DATA", "📖 METHOD"])
 
 # ================================================================================================
@@ -274,7 +277,8 @@ with tabs[0]:
                 "Available %": 100 * recs["survive"],
                 "Drop-off": recs["dropoff"],
                 "Rank": recs["rank"], "Mkt": recs["market"].round(0),
-                "Why": recs["why"],
+                "Why": [w + (f"{' · ' if w else ''}📝 {n}" if n else "") for w, n in
+                        zip(recs["why"], df["note"].to_numpy()[recs["i"].to_numpy()])],
             })
             if not rec["on_clock"]:
                 show = show.drop(columns=["Score", "Best at next pick"])
@@ -388,6 +392,7 @@ with tabs[1]:
         "Value": bb["value"], "VORP": bb["vorp"], "Yahoo-style Z": bb["z_total"], "Mkt": bb_mkt,
         "Model vs Mkt": bb_mkt - bb["rank"],
         "Drafted by": bb["pid"].map(owner_of).fillna(""),
+        "Note": bb["note"],
     })
     if show_cats:
         for c in ALL_CATS:
@@ -397,10 +402,12 @@ with tabs[1]:
                "Value": st.column_config.NumberColumn(format="%.2f", help="Sum of category scores (H2H units)"),
                "VORP": st.column_config.NumberColumn(format="%.2f", help="Value over replacement at his position — the ranking"),
                "Yahoo-style Z": st.column_config.NumberColumn(format="%.1f", help="Plain z-score total, like Yahoo's standard-deviation view"),
-               "Model vs Mkt": st.column_config.NumberColumn(format="%+.0f", help="Positive = the room will likely let him slide past his model rank")})
+               "Model vs Mkt": st.column_config.NumberColumn(format="%+.0f", help="Positive = the room will likely let him slide past his model rank"),
+               "Note": st.column_config.TextColumn(width="large", help="Manual projection or health adjustment (extra_players.csv / availability.csv)")})
     cc.update({f"·{c}": st.column_config.NumberColumn(format="%.2f") for c in ALL_CATS})
     st.dataframe(table, hide_index=True, width="stretch", height=640, column_config=cc)
-    st.caption("Projections = 2025-26 per-game rates (lightly shrunk for small samples) × projected games. "
+    st.caption("Projections = 2025-26 per-game rates (regressed ~10 games' worth toward a replacement-level rate) × projected games "
+               "in an 84-game season. Rows with a 📝 Note were added or adjusted by hand (extra_players.csv / availability.csv). "
                "Category columns (·G … ·SV%) are per-category value in H2H units; VORP is what the ranking uses.")
 
     st.markdown("##### VALUE CURVE BY POSITION")

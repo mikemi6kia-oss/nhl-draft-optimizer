@@ -25,6 +25,7 @@ class ModelSettings:
     n_teams: int = 12
     # projection
     weeks: float = 26.0              # fantasy weeks the NHL regular season spans
+    season_games: int = 84           # 2026-27 is an 84-game season (new CBA); 2025-26 stats are from 82
     gp_regression: float = 0.35      # share of missed games (to 82) given back to established skaters
     goalie_gp_regression: float = 0.25   # same idea for goalies, toward goalie_gp_target
     goalie_gp_target: float = 60.0

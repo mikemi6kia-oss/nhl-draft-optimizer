@@ -54,6 +54,7 @@ def load_keepers(path: Path | None = None) -> pd.DataFrame:
 def apply_keepers(state: DraftState, keepers: pd.DataFrame, players: pd.DataFrame) -> list[str]:
     """Place keepers into the draft. Returns human-readable problems (never raises)."""
     problems = []
+    unknown: dict[str, list[str]] = {}
     keepers = _plain_strings(keepers.copy()).fillna("")
     names = {norm_name(n): i for i, n in enumerate(state.team_names)}
     names[norm_name("me")] = state.my_slot
@@ -69,7 +70,7 @@ def apply_keepers(state: DraftState, keepers: pd.DataFrame, players: pd.DataFram
         elif norm_name(m) in names:
             team = names[norm_name(m)]
         else:
-            problems.append(f"Unknown manager '{m}' for {r['player']} — use a draft slot number, ME, or a team name")
+            unknown.setdefault(m or "(blank)", []).append(str(r["player"]))
             continue
         pid = match_player(r["player"], players, r.get("nhl_team") or None, r.get("pos") or None)
         if pid is None:
@@ -80,4 +81,10 @@ def apply_keepers(state: DraftState, keepers: pd.DataFrame, players: pd.DataFram
             state.add_keeper(team, pid, rnd)
         except ValueError as e:
             problems.append(f"{r['player']}: {e}")
+    if unknown:
+        n = sum(len(v) for v in unknown.values())
+        problems.insert(0, f"{n} keeper(s) not placed — these managers aren't in the sidebar team list: "
+                           + "; ".join(f"{m} ({', '.join(v)})" for m, v in unknown.items())
+                           + ". Type every team name in the sidebar, one per line, in draft order "
+                             "(or use slot numbers in the keepers file).")
     return problems
