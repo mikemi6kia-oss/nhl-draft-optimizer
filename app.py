@@ -68,6 +68,11 @@ def settings_key(s: ModelSettings) -> tuple:
 # ------------------------------------------------------------------------------------------------
 # Sidebar — league + model controls
 # ------------------------------------------------------------------------------------------------
+def _on_restart():
+    """Back to a fresh page load: no picks, keepers + league from the repo files, default settings."""
+    ss.clear()
+
+
 def _on_randomize(n):
     ss["_slot"] = random.randint(1, n)
 
@@ -95,26 +100,32 @@ with st.sidebar:
     names_txt = st.text_area("Team names in draft order (optional, one per line)", key="names", height=90,
                              placeholder="Team 1\nTeam 2\n…")
 
+    with st.popover("🔄 Restart draft"):
+        st.markdown("Clear **all picks** and put everything back to the starting point: keepers and draft order "
+                    "from the repo, your slot back to 1, model settings back to defaults, uploaded ADP/keepers removed.")
+        st.caption("Tip: 💾 download the draft state first (Keepers & Data tab) if you might want it back.")
+        st.button("Yes, restart everything", type="primary", on_click=_on_restart, key="restart_confirm")
+
     with st.expander("🧠 Valuation model", expanded=False):
-        method = st.radio("Scoring", ["H2H G-score (recommended)", "Classic Z-score"], index=0,
+        method = st.radio("Scoring", ["H2H G-score (recommended)", "Classic Z-score"], index=0, key="w_method",
                           help="Z-score = the 'standard deviation' view Yahoo shows. G-score also accounts for "
                                "week-to-week noise, which is what decides head-to-head categories.")
-        goalie_w = st.slider("Goalie category weight", 0.5, 1.5, 1.0, 0.05,
+        goalie_w = st.slider("Goalie category weight", 0.5, 1.5, 1.0, 0.05, key="w_goalie",
                              help="1.0 = theory: 4 of 10 categories come from only 2 active goalies.")
-        scarcity = st.slider("Positional scarcity", 0.0, 1.0, 0.5, 0.05,
+        scarcity = st.slider("Positional scarcity", 0.0, 1.0, 0.5, 0.05, key="w_scarcity",
                              help="How much the gap between replacement-level C/W/D matters. 0 = position-blind, "
                                   "1 = full theoretical gap. 0.5 won the simulation test (see METHOD).")
-        bench_f = st.slider("Bench usefulness", 0.1, 0.6, 0.35, 0.05,
+        bench_f = st.slider("Bench usefulness", 0.1, 0.6, 0.35, 0.05, key="w_bench",
                             help="Share of a bench player's production that ends up in your daily lineup.")
-        gp_reg = st.slider("Injury regression", 0.0, 0.6, 0.35, 0.05,
+        gp_reg = st.slider("Injury regression", 0.0, 0.6, 0.35, 0.05, key="w_gpreg",
                            help="Share of last season's missed games given back to established players.")
-        alpha = st.slider("Category-need adaptivity", 0.0, 1.0, 0.75, 0.05,
+        alpha = st.slider("Category-need adaptivity", 0.0, 1.0, 0.75, 0.05, key="w_alpha",
                           help="How strongly recommendations chase the categories you're closest to winning/losing.")
-        punts = st.multiselect("Punt categories", ALL_CATS, default=[])
+        punts = st.multiselect("Punt categories", ALL_CATS, default=[], key="w_punts")
     with st.expander("🎯 Opponent model", expanded=False):
-        noise = st.slider("Opponent unpredictability", 0.05, 0.40, 0.20, 0.01,
+        noise = st.slider("Opponent unpredictability", 0.05, 0.40, 0.20, 0.01, key="w_noise",
                           help="SD of opponents' picks around market rank, as a share of that rank.")
-        n_sims = st.select_slider("Simulations per recommendation", [100, 200, 300, 500], value=300)
+        n_sims = st.select_slider("Simulations per recommendation", [100, 200, 300, 500], value=300, key="w_sims")
 
 settings = ModelSettings(
     n_teams=n_teams, method="h2h" if method.startswith("H2H") else "z", goalie_weight=goalie_w, scarcity=scarcity,
